@@ -1,0 +1,51 @@
+% zvlnenec.sty
+\ProvidesPackage{zvlnenec}[2024/06/07 v1.0 Replace specific characters with LuaTeX]
+
+% Load necessary packages
+\RequirePackage{luacode}
+\RequirePackage{luatexbase}
+
+% Begin Lua code block
+\begin{luacode}
+function replace_chars(s)
+    -- Check for math mode delimited by $
+    local non_math_segments = {}
+    local math_mode = false
+
+    -- Split the string into non-math and math segments
+    local segments = {}
+    for segment, delimiter in string.gmatch(s, "([^$]*)([$]?)") do
+        table.insert(segments, {segment = segment, math_mode = math_mode})
+        if delimiter == "$" then
+            math_mode = not math_mode
+            table.insert(segments, {segment = delimiter, math_mode = math_mode})
+            math_mode = not math_mode
+        end
+    end
+
+    -- Replace characters in non-math segments only
+    for i, seg in ipairs(segments) do
+        if not seg.math_mode then
+            -- More accurate regex to handle word boundaries without adding spaces
+            -- Detects single-character surrounded by spaces or at start/end of line
+            seg.segment = string.gsub(seg.segment, '^([KkSsVvZzOoUuAaIi])%s', '%1~ ')
+            seg.segment = string.gsub(seg.segment, '%s([KkSsVvZzOoUuAaIi])%s', ' %1~ ')
+            seg.segment = string.gsub(seg.segment, '%s([KkSsVvZzOoUuAaIi])$', ' %1~')
+        end
+    end
+
+    -- Reconstruct the string
+    local result = ""
+    for _, seg in ipairs(segments) do
+        result = result .. seg.segment
+    end
+
+    return result
+end
+
+luatexbase.add_to_callback("process_input_buffer", function(line)
+    return replace_chars(line)
+end, "replace_chars")
+\end{luacode}
+
+\endinput
